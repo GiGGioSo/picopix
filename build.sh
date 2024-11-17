@@ -1,13 +1,15 @@
 #!/bin/sh
 
-LIBS="-lglfw -ldl -lpthread -lm -lGL"
-INCLUDES="-Iinclude/"
+CFLAGS="-ggdb -Wall -Werror -std=c99"
+INCLUDES="-I ./include/"
+LIBS="-L./lib/linux/ -lm -ldl -lraylib"
 
 EXE="./bin/picopix"
-SRCS="src/main.c src/glad.c"
+SOURCES="src/main.c"
+
+set -xe
 
 rm -rf bin
 mkdir bin
 
-echo "Compiling..."
-gcc $LIBS $INCLUDES -o $EXE $SRCS
+gcc $SOURCES -o $EXE $LIBS $INCLUDES $CLAGS
