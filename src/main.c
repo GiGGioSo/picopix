@@ -48,6 +48,10 @@ int main(void) {
     }
 }
 
+PIX_UIState button(int x, int y, int width, int height) {
+    return BUTTON_NOTHING;
+}
+
 PIX_Canvas *create_canvas(size_t width, size_t height) {
     PIX_Canvas *canvas = malloc(sizeof(PIX_Canvas));
     if (!canvas) return NULL;

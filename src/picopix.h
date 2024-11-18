@@ -3,6 +3,15 @@
 
 #include <raylib.h>
 
+typedef struct PIX_UIContext {
+} PIX_UIContext;
+
+typedef enum PIX_UIState {
+    BUTTON_NOTHING,
+    BUTTON_PRESSED,
+    BUTTON_CLICKED
+} PIX_UIState;
+
 typedef struct PIX_Pixel {
     Color color;
     bool selected;
