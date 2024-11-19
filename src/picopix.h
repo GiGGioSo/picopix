@@ -16,10 +16,11 @@ typedef struct PIX_UIContext {
 } PIX_UIContext;
 
 typedef enum PIX_UIState {
-    BUTTON_NOTHING = 0,
+    NOTHING = 0,
     BUTTON_HOVERED = (1 << 0),
     BUTTON_PRESSED = (1 << 1),
-    BUTTON_CLICKED = (1 << 2)
+    BUTTON_CLICKED = (1 << 2),
+    CANVAS_DRAW    = (1 << 3),
 } PIX_UIState;
 
 typedef struct PIX_Pixel {
