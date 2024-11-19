@@ -7,6 +7,8 @@
 
 #include "picopix.h"
 
+void update_mouse(PIX_UIContext *ctx, Camera2D camera);
+PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height);
 PIX_Canvas *create_canvas(size_t width, size_t height);
 void draw_canvas(PIX_Canvas *canvas, Vector2 pos, Vector2 pixel_size);
 
@@ -25,22 +27,31 @@ int main(void) {
         .rotation = 0.f,
         .zoom = 1.0f
     };
+    PIX_UIContext ctx = {};
     PIX_Canvas *canvas = create_canvas(4, 3);
+
+    Vector2 mouse_screen = Vector2Zero();
+    Vector2 mouse_camera = Vector2Zero();
 
     while (!WindowShouldClose()) {
 
         float dt = GetFrameTime();
         float time = GetTime();
 
+        update_mouse(&ctx, camera);
+
         BeginDrawing();
         BeginMode2D(camera);
 
         ClearBackground(BLACK);
 
-
         Vector2 pixel_size = { 20, 20 };
         // DrawRectangleV(Vector2Zero(), pixel_size, RED);
         draw_canvas(canvas, Vector2Zero(), pixel_size);
+
+        if (button(&ctx, -200, -100, 200, 100) & BUTTON_CLICKED) {
+            printf("CLICK!\n");
+        }
 
         EndMode2D();
         DrawFPS(2, 2);
@@ -48,8 +59,51 @@ int main(void) {
     }
 }
 
-PIX_UIState button(int x, int y, int width, int height) {
-    return BUTTON_NOTHING;
+void update_mouse(PIX_UIContext *ctx, Camera2D camera) {
+    if (!ctx) return;
+    if (IsCursorOnScreen) {
+        // mouse cursor
+        ctx->mouse_pos_screen = GetMousePosition();
+        ctx->mouse_pos_world = GetScreenToWorld2D(ctx->mouse_pos_screen, camera);
+        // mouse left button
+        bool new_mouse_left_press = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+        ctx->mouse_left.click =
+            ctx->mouse_left.press && !new_mouse_left_press;
+        ctx->mouse_left.press = new_mouse_left_press;
+        // mouse right button
+        bool new_mouse_right_press = IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
+        ctx->mouse_right.click =
+            ctx->mouse_right.press && !new_mouse_right_press;
+        ctx->mouse_right.press = new_mouse_right_press;
+    }
+}
+
+PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height) {
+    PIX_UIState result = BUTTON_NOTHING;
+    Color button_col = LIGHTGRAY;
+
+    Vector2 button_pos = { x, y };
+    Vector2 button_dim = { width, height };
+
+    Vector2 mouse_in_button = Vector2Subtract(ctx->mouse_pos_world, button_pos);
+
+    if (0 < mouse_in_button.x && mouse_in_button.x < button_dim.x &&
+        0 < mouse_in_button.y && mouse_in_button.y < button_dim.y) {
+        if (ctx->mouse_left.click) {
+            result = BUTTON_CLICKED | BUTTON_HOVERED;
+            button_col = RED;
+        } else if (ctx->mouse_left.press) {
+            result = BUTTON_PRESSED | BUTTON_HOVERED;
+            button_col = GREEN;
+        } else {
+            result = BUTTON_HOVERED;
+            button_col = DARKGRAY;
+        }
+    }
+
+    DrawRectangleV(button_pos, button_dim, button_col);
+
+    return result;
 }
 
 PIX_Canvas *create_canvas(size_t width, size_t height) {
