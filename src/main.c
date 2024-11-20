@@ -46,8 +46,8 @@ int main(void) {
         float dt = GetFrameTime();
         float time = GetTime();
 
-        camera.offset.x = (width / 2) + sinf(time) * 200;
-        camera.zoom = 1.f + sinf(time + PI * 0.5f) * 0.5f;
+        // camera.offset.x = (width / 2) + sinf(time) * 200;
+        // camera.zoom = 1.f + sinf(time + PI * 0.5f) * 0.5f;
 
         update_mouse(&ctx, camera);
 
@@ -56,7 +56,7 @@ int main(void) {
 
         ClearBackground(RAYWHITE);
 
-        PIX_UIState canvas_feed = draw_canvas(&ctx, canvas, canvas_origin, pixel_size);
+        draw_canvas(&ctx, canvas, canvas_origin, pixel_size);
         EndMode2D();
 
         if (screen_button(&ctx, 10, 10, 100, 40) & BUTTON_CLICKED) {
@@ -72,18 +72,23 @@ void update_mouse(PIX_UIContext *ctx, Camera2D camera) {
     if (!ctx) return;
     if (IsCursorOnScreen) {
         // mouse cursor
-        ctx->mouse_pos_screen = GetMousePosition();
-        ctx->mouse_pos_world = GetScreenToWorld2D(ctx->mouse_pos_screen, camera);
+        ctx->mouse.pos = GetMousePosition();
+        ctx->mouse.world_pos = GetScreenToWorld2D(ctx->mouse.pos, camera);
         // mouse left button
         bool new_mouse_left_press = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
-        ctx->mouse_left.click =
-            ctx->mouse_left.press && !new_mouse_left_press;
-        ctx->mouse_left.press = new_mouse_left_press;
+        //  update mouse position with starting press position
+        if (!ctx->mouse.left.press && new_mouse_left_press) {
+            ctx->mouse.press_pos = ctx->mouse.pos;
+            ctx->mouse.world_press_pos = ctx->mouse.world_pos;
+        }
+        ctx->mouse.left.click =
+            ctx->mouse.left.press && !new_mouse_left_press;
+        ctx->mouse.left.press = new_mouse_left_press;
         // mouse right button
         bool new_mouse_right_press = IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
-        ctx->mouse_right.click =
-            ctx->mouse_right.press && !new_mouse_right_press;
-        ctx->mouse_right.press = new_mouse_right_press;
+        ctx->mouse.right.click =
+            ctx->mouse.right.press && !new_mouse_right_press;
+        ctx->mouse.right.press = new_mouse_right_press;
     }
 }
 
@@ -94,15 +99,15 @@ PIX_UIState screen_button(PIX_UIContext *ctx, int x, int y, int width, int heigh
     Vector2 button_pos = { x, y };
     Vector2 button_dim = { width, height };
 
-    Vector2 mouse_in_button = Vector2Subtract(ctx->mouse_pos_screen, button_pos);
+    Vector2 mouse_in_button = Vector2Subtract(ctx->mouse.pos, button_pos);
 
-    if (0 < mouse_in_button.x && mouse_in_button.x < button_dim.x &&
-        0 < mouse_in_button.y && mouse_in_button.y < button_dim.y) {
+    if (0 <= mouse_in_button.x && mouse_in_button.x <= button_dim.x &&
+        0 <= mouse_in_button.y && mouse_in_button.y <= button_dim.y) {
         // the mouse is inside the button
-        if (ctx->mouse_left.click) {
+        if (ctx->mouse.left.click) {
             result = BUTTON_CLICKED | BUTTON_HOVERED;
             button_col = RED;
-        } else if (ctx->mouse_left.press) {
+        } else if (ctx->mouse.left.press) {
             result = BUTTON_PRESSED | BUTTON_HOVERED;
             button_col = GREEN;
         } else {
@@ -123,15 +128,15 @@ PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height) {
     Vector2 button_pos = { x, y };
     Vector2 button_dim = { width, height };
 
-    Vector2 mouse_in_button = Vector2Subtract(ctx->mouse_pos_world, button_pos);
+    Vector2 mouse_in_button = Vector2Subtract(ctx->mouse.world_pos, button_pos);
 
-    if (0 < mouse_in_button.x && mouse_in_button.x < button_dim.x &&
-        0 < mouse_in_button.y && mouse_in_button.y < button_dim.y) {
+    if (0 <= mouse_in_button.x && mouse_in_button.x <= button_dim.x &&
+        0 <= mouse_in_button.y && mouse_in_button.y <= button_dim.y) {
         // the mouse is inside the button
-        if (ctx->mouse_left.click) {
+        if (ctx->mouse.left.click) {
             result = BUTTON_CLICKED | BUTTON_HOVERED;
             button_col = RED;
-        } else if (ctx->mouse_left.press) {
+        } else if (ctx->mouse.left.press) {
             result = BUTTON_PRESSED | BUTTON_HOVERED;
             button_col = GREEN;
         } else {
@@ -148,14 +153,14 @@ PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height) {
 PIX_UIState pixel_button(PIX_UIContext *ctx, Vector2 pos, Vector2 dim, Color col) {
     PIX_UIState result = NOTHING;
 
-    Vector2 mouse_in_button = Vector2Subtract(ctx->mouse_pos_world, pos);
+    Vector2 mouse_in_button = Vector2Subtract(ctx->mouse.world_pos, pos);
 
-    if (0 < mouse_in_button.x && mouse_in_button.x < dim.x &&
-        0 < mouse_in_button.y && mouse_in_button.y < dim.y) {
+    if (0 <= mouse_in_button.x && mouse_in_button.x <= dim.x &&
+        0 <= mouse_in_button.y && mouse_in_button.y <= dim.y) {
         // the mouse is inside the button
-        if (ctx->mouse_left.click) {
+        if (ctx->mouse.left.click) {
             result = BUTTON_CLICKED | BUTTON_HOVERED;
-        } else if (ctx->mouse_left.press) {
+        } else if (ctx->mouse.left.press) {
             result = BUTTON_PRESSED | BUTTON_HOVERED;
         } else {
             result = BUTTON_HOVERED;

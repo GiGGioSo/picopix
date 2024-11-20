@@ -8,11 +8,18 @@ typedef struct PIX_Button {
     bool click;
 } PIX_Button;
 
+typedef struct PIX_Mouse {
+    Vector2 pos;
+    Vector2 world_pos;
+    Vector2 press_pos;
+    Vector2 world_press_pos;
+    PIX_Button left;
+    PIX_Button middle;
+    PIX_Button right;
+} PIX_Mouse;
+
 typedef struct PIX_UIContext {
-    Vector2 mouse_pos_screen;
-    Vector2 mouse_pos_world;
-    PIX_Button mouse_left;
-    PIX_Button mouse_right;
+    PIX_Mouse mouse;
 } PIX_UIContext;
 
 typedef enum PIX_UIState {
