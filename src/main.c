@@ -11,17 +11,17 @@ void update_context(PIX_UIContext *ctx, Camera2D camera);
 PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height);
 PIX_UIState screen_button(PIX_UIContext *ctx, int x, int y, int width, int height);
 PIX_UIState pixel_button(PIX_UIContext *ctx, Vector2 pos, Vector2 dim, Color col);
-PIX_Canvas *create_canvas(size_t width, size_t height);
+PIX_Canvas *create_canvas(size_t width, size_t height, Color erase_color);
 PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas, Vector2 pos, Vector2 pixel_size);
+void draw_background(int width, int height);
 void erase_canvas(PIX_Canvas *canvas);
 
 int main(void) {
 
     int width = 900;
     int height = 600;
-
     InitWindow(width, height, "PicoPix");
-    // SetTargetFPS(60);
+    SetTargetFPS(256);
     SetExitKey(KEY_F4);
 
     Camera2D camera = {
@@ -32,17 +32,17 @@ int main(void) {
     };
     PIX_UIContext ctx = {};
     Vector2 pixel_size = { 10, 10 };
-    Vector2 canvas_origin = { -width * 0.5f, -height * 0.5f };
+    Vector2 canvas_origin = { -width * 0.25f, -height * 0.25f };
     Vector2 opposite = Vector2Negate(canvas_origin);
     PIX_Canvas *canvas = create_canvas(
             opposite.x*2 / (pixel_size.x),
-            opposite.y*2 / (pixel_size.y));
+            opposite.y*2 / (pixel_size.y),
+            BLANK);
 
     Vector2 mouse_screen = Vector2Zero();
     Vector2 mouse_camera = Vector2Zero();
 
     while (!WindowShouldClose()) {
-
         float dt = GetFrameTime();
         float time = GetTime();
 
@@ -58,13 +58,16 @@ int main(void) {
         if (ctx.mouse.wheel != 0) {
             camera.offset = ctx.mouse.pos;
             camera.target = ctx.mouse.world_pos;
+            // camera.zoom += (50.f * dt * SIGN(ctx.mouse.wheel));
             camera.zoom *= (1.f + dt * 15.f * SIGN(ctx.mouse.wheel));
         }
 
         BeginDrawing();
-        BeginMode2D(camera);
 
         ClearBackground(RAYWHITE);
+        draw_background(width, height);
+
+        BeginMode2D(camera);
 
         draw_canvas(&ctx, canvas, canvas_origin, pixel_size);
         EndMode2D();
@@ -187,33 +190,34 @@ PIX_UIState pixel_button(PIX_UIContext *ctx, Vector2 pos, Vector2 dim, Color col
         }
     }
 
-    Vector2 pixel_center_pos = Vector2AddValue(pos, 1);
-    Vector2 pixel_center_dim = Vector2SubtractValue(dim, 2);
-    DrawRectangleV(pos, dim, DARKGRAY);
-    DrawRectangleV(pixel_center_pos, pixel_center_dim, col);
+    // Vector2 pixel_center_pos = Vector2AddValue(pos, 1);
+    // Vector2 pixel_center_dim = Vector2SubtractValue(dim, 2);
+    DrawRectangleV(pos, dim, col);
+    // DrawRectangleV(pixel_center_pos, pixel_center_dim, col);
 
     return result;
 }
 
-PIX_Canvas *create_canvas(size_t width, size_t height) {
+PIX_Canvas *create_canvas(size_t width, size_t height, Color erase_color) {
     PIX_Canvas *canvas = malloc(sizeof(PIX_Canvas));
     if (!canvas) return NULL;
 
     canvas->layers_count = 1;
     canvas->layers = malloc(canvas->layers_count * sizeof(PIX_Layer));
+    canvas->pixels_width = width;
+    canvas->pixels_height = height;
+    canvas->erase_color = erase_color;
 
     PIX_Layer *layer = &(canvas->layers[0]);
     strcpy(layer->name, "Default layer");
-    layer->pixels_width = width;
-    layer->pixels_height = height;
-    layer->pixels =
-        malloc(layer->pixels_width * layer->pixels_height * sizeof(PIX_Pixel));
+    layer->pixels = malloc(
+            canvas->pixels_width * canvas->pixels_height * sizeof(PIX_Pixel));
 
     for(size_t pixel_index = 0;
-        pixel_index < layer->pixels_width * layer->pixels_height;
+        pixel_index < canvas->pixels_width * canvas->pixels_height;
         ++pixel_index) {
         PIX_Pixel *pixel = &layer->pixels[pixel_index];
-        pixel->color = LIGHTGRAY;
+        pixel->color = canvas->erase_color;
     }
 
     return canvas;
@@ -227,15 +231,15 @@ PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas, Vector2 pos, Vec
 
         PIX_Layer *layer = &canvas->layers[layer_index];
         for(size_t pixel_index = 0;
-            pixel_index < layer->pixels_width * layer->pixels_height;
+            pixel_index < canvas->pixels_width * canvas->pixels_height;
             ++pixel_index) {
 
             PIX_Pixel *pixel = &layer->pixels[pixel_index];
             Vector2 pixel_pos = {
                 .x = pos.x +
-                    (pixel_index % layer->pixels_width) * (pixel_size.x),
+                    (pixel_index % canvas->pixels_width) * (pixel_size.x),
                 .y = pos.y +
-                    (pixel_index / layer->pixels_width) * (pixel_size.y)
+                    (pixel_index / canvas->pixels_width) * (pixel_size.y)
             };
 
             if ((pixel_button(ctx, pixel_pos, pixel_size, pixel->color) &
@@ -246,7 +250,42 @@ PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas, Vector2 pos, Vec
             // DrawRectangleV(pixel_pos, pixel_size, pixel->color);
         }
     }
+
+    // vertical pixel lines
+    for(int line_index = 0;
+        line_index <= canvas->pixels_width;
+        ++line_index) {
+
+        int line_x = pos.x + line_index * pixel_size.x;
+
+        DrawLine(line_x, pos.y,
+                 line_x, pos.y + canvas->pixels_height * pixel_size.y,
+                 DARKGRAY);                // Draw a line
+    }
+
+    // horizontal pixel lines
+    for(int line_index = 0;
+        line_index <= canvas->pixels_height;
+        ++line_index) {
+
+        int line_y = pos.y + line_index * pixel_size.y;
+
+        DrawLine(pos.x, line_y,
+                 pos.x + canvas->pixels_width * pixel_size.x, line_y,
+                 DARKGRAY);                // Draw a line
+    }
     return result;
+}
+
+void draw_background(int width, int height) {
+    Vector2 block_size = { 25, 25 };
+    for(int x = 0; x < width; x += block_size.x) {
+        for(int y = 0; y < height; y += block_size.y) {
+            Color block_color = ((x + y) % 2 == 0) ? RAYWHITE : LIGHTGRAY;
+            Vector2 block_pos = { x, y };
+            DrawRectangleV(block_pos, block_size, block_color);
+        }
+    }
 }
 
 void erase_canvas(PIX_Canvas *canvas) {
@@ -256,12 +295,11 @@ void erase_canvas(PIX_Canvas *canvas) {
 
         PIX_Layer *layer = &canvas->layers[layer_index];
         for(size_t pixel_index = 0;
-            pixel_index < layer->pixels_width * layer->pixels_height;
+            pixel_index < canvas->pixels_width * canvas->pixels_height;
             ++pixel_index) {
 
             PIX_Pixel *pixel = &layer->pixels[pixel_index];
-            pixel->color = LIGHTGRAY;
-            // DrawRectangleV(pixel_pos, pixel_size, pixel->color);
+            pixel->color = canvas->erase_color;
         }
     }
 }

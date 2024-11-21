@@ -44,13 +44,14 @@ typedef struct PIX_Pixel {
 typedef struct PIX_Layer {
     char name[512];
     PIX_Pixel *pixels;
-    size_t pixels_width;
-    size_t pixels_height;
 } PIX_Layer;
 
 typedef struct PIX_Canvas {
     PIX_Layer *layers;
     size_t layers_count;
+    size_t pixels_width;
+    size_t pixels_height;
+    Color erase_color;
 } PIX_Canvas;
 
 
