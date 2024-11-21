@@ -3,9 +3,12 @@
 
 #include <raylib.h>
 
+#define SIGN(x) (((x) > 0) ? 1.f : -1.f)
+
 typedef struct PIX_Button {
     bool press;
     bool click;
+    bool down_click;
 } PIX_Button;
 
 typedef struct PIX_Mouse {
@@ -16,10 +19,13 @@ typedef struct PIX_Mouse {
     PIX_Button left;
     PIX_Button middle;
     PIX_Button right;
+    float wheel;
 } PIX_Mouse;
 
 typedef struct PIX_UIContext {
     PIX_Mouse mouse;
+    bool canvas_dragging;
+    Vector2 camera_drag_start_offset;
 } PIX_UIContext;
 
 typedef enum PIX_UIState {
