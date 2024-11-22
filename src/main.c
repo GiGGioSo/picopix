@@ -44,8 +44,10 @@ int main(void) {
 
         // camera movement
         if (ctx.canvas_dragging && ctx.mouse.left.press) {
-            Vector2 displacement = Vector2Subtract(ctx.mouse.pos, ctx.mouse.press_pos);
-            camera.offset = Vector2Add(ctx.camera_drag_start_offset, displacement);
+            Vector2 displacement =
+                Vector2Subtract(ctx.mouse.pos, ctx.mouse.press_pos);
+            camera.offset =
+                Vector2Add(ctx.camera_drag_start_offset, displacement);
         }
 
         // camera zoom
@@ -58,7 +60,7 @@ int main(void) {
 
         BeginDrawing();
 
-        ClearBackground(RAYWHITE);
+        ClearBackground(DARKGRAY);
         draw_background(canvas, camera, width, height);
 
         BeginMode2D(camera);
@@ -293,10 +295,6 @@ void draw_background(PIX_Canvas *canvas, Camera2D camera, int width, int height)
         .width = screen_canvas_size.x,
         .height = screen_canvas_size.y
     };
-    PIX_PRINT(canvas_rectangle.x, "%f");
-    PIX_PRINT(canvas_rectangle.y, "%f");
-    PIX_PRINT(canvas_rectangle.width, "%f");
-    PIX_PRINT(canvas_rectangle.height, "%f");
 
     Vector2 block_size = { 25, 25 };
     for(int x = 0; x < width; x += block_size.x) {
@@ -316,8 +314,10 @@ void draw_background(PIX_Canvas *canvas, Camera2D camera, int width, int height)
                     MAX(screen_canvas_origin.y, y)
                 };
                 Vector2 adjusted_size = {
-                    block_size.x - (block_pos.x - x),
-                    block_size.y - (block_pos.y - y),
+                    MIN(screen_canvas_opposite.x - x,
+                        block_size.x - (block_pos.x - x)),
+                    MIN(screen_canvas_opposite.y - y,
+                        block_size.y - (block_pos.y - y))
                 };
                 DrawRectangleV(block_pos, adjusted_size, block_color);
             }
