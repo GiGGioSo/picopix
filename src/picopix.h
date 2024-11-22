@@ -4,6 +4,9 @@
 #include <raylib.h>
 
 #define SIGN(x) (((x) > 0) ? 1.f : -1.f)
+#define MIN(x, y) (((x) > (y)) ? (y) : (x))
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define PIX_PRINT(x, fmt) printf(#x": "fmt"\n", x)
 
 typedef struct PIX_Button {
     bool press;
@@ -51,6 +54,8 @@ typedef struct PIX_Canvas {
     size_t layers_count;
     size_t pixels_width;
     size_t pixels_height;
+    Vector2 pos;
+    Vector2 pixel_size;
     Color erase_color;
 } PIX_Canvas;
 

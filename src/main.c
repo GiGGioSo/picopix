@@ -12,8 +12,8 @@ PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height);
 PIX_UIState screen_button(PIX_UIContext *ctx, int x, int y, int width, int height);
 PIX_UIState pixel_button(PIX_UIContext *ctx, Vector2 pos, Vector2 dim, Color col);
 PIX_Canvas *create_canvas(size_t width, size_t height, Color erase_color);
-PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas, Vector2 pos, Vector2 pixel_size);
-void draw_background(int width, int height);
+PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas);
+void draw_background(PIX_Canvas *canvas, Camera2D camera, int width, int height);
 void erase_canvas(PIX_Canvas *canvas);
 
 int main(void) {
@@ -31,13 +31,7 @@ int main(void) {
         .zoom = 1.0f
     };
     PIX_UIContext ctx = {};
-    Vector2 pixel_size = { 10, 10 };
-    Vector2 canvas_origin = { -width * 0.25f, -height * 0.25f };
-    Vector2 opposite = Vector2Negate(canvas_origin);
-    PIX_Canvas *canvas = create_canvas(
-            opposite.x*2 / (pixel_size.x),
-            opposite.y*2 / (pixel_size.y),
-            BLANK);
+    PIX_Canvas *canvas = create_canvas(16, 16, BLANK);
 
     Vector2 mouse_screen = Vector2Zero();
     Vector2 mouse_camera = Vector2Zero();
@@ -65,11 +59,11 @@ int main(void) {
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
-        draw_background(width, height);
+        draw_background(canvas, camera, width, height);
 
         BeginMode2D(camera);
 
-        draw_canvas(&ctx, canvas, canvas_origin, pixel_size);
+        draw_canvas(&ctx, canvas);
         EndMode2D();
 
         if (screen_button(&ctx, 10, 30, 100, 40) & BUTTON_CLICKED) {
@@ -206,6 +200,8 @@ PIX_Canvas *create_canvas(size_t width, size_t height, Color erase_color) {
     canvas->layers = malloc(canvas->layers_count * sizeof(PIX_Layer));
     canvas->pixels_width = width;
     canvas->pixels_height = height;
+    canvas->pos = Vector2Zero();
+    canvas->pixel_size = (Vector2) { 10, 10 };
     canvas->erase_color = erase_color;
 
     PIX_Layer *layer = &(canvas->layers[0]);
@@ -223,7 +219,7 @@ PIX_Canvas *create_canvas(size_t width, size_t height, Color erase_color) {
     return canvas;
 }
 
-PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas, Vector2 pos, Vector2 pixel_size) {
+PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas) {
     PIX_UIState result = NOTHING;
     for(size_t layer_index = 0;
         layer_index < canvas->layers_count;
@@ -236,18 +232,17 @@ PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas, Vector2 pos, Vec
 
             PIX_Pixel *pixel = &layer->pixels[pixel_index];
             Vector2 pixel_pos = {
-                .x = pos.x +
-                    (pixel_index % canvas->pixels_width) * (pixel_size.x),
-                .y = pos.y +
-                    (pixel_index / canvas->pixels_width) * (pixel_size.y)
+                .x = (pixel_index % canvas->pixels_width) *
+                    (canvas->pixel_size.x),
+                .y = (pixel_index / canvas->pixels_width) *
+                    (canvas->pixel_size.y)
             };
 
-            if ((pixel_button(ctx, pixel_pos, pixel_size, pixel->color) &
+            if ((pixel_button(ctx, pixel_pos, canvas->pixel_size, pixel->color) &
                     BUTTON_PRESSED) && !ctx->canvas_dragging) {
                 pixel->color = RED;
                 result = CANVAS_DRAW;
             }
-            // DrawRectangleV(pixel_pos, pixel_size, pixel->color);
         }
     }
 
@@ -256,10 +251,10 @@ PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas, Vector2 pos, Vec
         line_index <= canvas->pixels_width;
         ++line_index) {
 
-        int line_x = pos.x + line_index * pixel_size.x;
+        int line_x = line_index * canvas->pixel_size.x;
 
-        DrawLine(line_x, pos.y,
-                 line_x, pos.y + canvas->pixels_height * pixel_size.y,
+        DrawLine(line_x, 0,
+                 line_x, canvas->pixels_height * canvas->pixel_size.y,
                  DARKGRAY);                // Draw a line
     }
 
@@ -268,22 +263,64 @@ PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas, Vector2 pos, Vec
         line_index <= canvas->pixels_height;
         ++line_index) {
 
-        int line_y = pos.y + line_index * pixel_size.y;
+        int line_y = line_index * canvas->pixel_size.y;
 
-        DrawLine(pos.x, line_y,
-                 pos.x + canvas->pixels_width * pixel_size.x, line_y,
+        DrawLine(0, line_y,
+                 canvas->pixels_width * canvas->pixel_size.x, line_y,
                  DARKGRAY);                // Draw a line
     }
     return result;
 }
 
-void draw_background(int width, int height) {
+void draw_background(PIX_Canvas *canvas, Camera2D camera, int width, int height) {
+    Vector2 screen_canvas_origin = GetWorldToScreen2D(canvas->pos, camera);
+    Vector2 world_canvas_size = {
+        canvas->pixels_width * canvas->pixel_size.x,
+        canvas->pixels_height * canvas->pixel_size.y
+    };
+    Vector2 world_canvas_opposite = Vector2Add(canvas->pos, world_canvas_size);
+    Vector2 screen_canvas_opposite =
+        GetWorldToScreen2D(
+                world_canvas_opposite,
+                camera);
+    Vector2 screen_canvas_size =
+        Vector2Subtract(
+                screen_canvas_opposite,
+                screen_canvas_origin);
+    Rectangle canvas_rectangle = {
+        .x = screen_canvas_origin.x,
+        .y = screen_canvas_origin.y,
+        .width = screen_canvas_size.x,
+        .height = screen_canvas_size.y
+    };
+    PIX_PRINT(canvas_rectangle.x, "%f");
+    PIX_PRINT(canvas_rectangle.y, "%f");
+    PIX_PRINT(canvas_rectangle.width, "%f");
+    PIX_PRINT(canvas_rectangle.height, "%f");
+
     Vector2 block_size = { 25, 25 };
     for(int x = 0; x < width; x += block_size.x) {
         for(int y = 0; y < height; y += block_size.y) {
             Color block_color = ((x + y) % 2 == 0) ? RAYWHITE : LIGHTGRAY;
-            Vector2 block_pos = { x, y };
-            DrawRectangleV(block_pos, block_size, block_color);
+
+            Rectangle block_rectangle = {
+                .x = x,
+                .y = y,
+                .width = block_size.x,
+                .height = block_size.y
+            };
+
+            if (CheckCollisionRecs(canvas_rectangle, block_rectangle)) {
+                Vector2 block_pos = {
+                    MAX(screen_canvas_origin.x, x),
+                    MAX(screen_canvas_origin.y, y)
+                };
+                Vector2 adjusted_size = {
+                    block_size.x - (block_pos.x - x),
+                    block_size.y - (block_pos.y - y),
+                };
+                DrawRectangleV(block_pos, adjusted_size, block_color);
+            }
         }
     }
 }
