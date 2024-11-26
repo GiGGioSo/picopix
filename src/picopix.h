@@ -25,18 +25,21 @@ typedef struct PIX_Mouse {
     float wheel;
 } PIX_Mouse;
 
-typedef struct PIX_UIContext {
+typedef struct PIX_Context {
+    int width;
+    int height;
     PIX_Mouse mouse;
     bool canvas_dragging;
     Vector2 camera_drag_start_offset;
-} PIX_UIContext;
+    Color draw_color;
+} PIX_Context;
 
 typedef enum PIX_UIState {
-    NOTHING = 0,
-    BUTTON_HOVERED = (1 << 0),
-    BUTTON_PRESSED = (1 << 1),
-    BUTTON_CLICKED = (1 << 2),
-    CANVAS_DRAW    = (1 << 3),
+    NOTHING = 0l,
+    BUTTON_HOVERED = (1l << 0),
+    BUTTON_PRESSED = (1l << 1),
+    BUTTON_CLICKED = (1l << 2),
+    CANVAS_DRAW    = (1l << 3),
 } PIX_UIState;
 
 typedef struct PIX_Pixel {

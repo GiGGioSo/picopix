@@ -7,31 +7,32 @@
 
 #include "picopix.h"
 
-void update_context(PIX_UIContext *ctx, Camera2D camera);
-PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height);
-PIX_UIState screen_button(PIX_UIContext *ctx, int x, int y, int width, int height);
-PIX_UIState pixel_button(PIX_UIContext *ctx, Vector2 pos, Vector2 dim, Color col);
+void update_context(PIX_Context *ctx, Camera2D camera);
+void color_wheel(PIX_Context *ctx, Vector2 center, int size);
+PIX_UIState button(PIX_Context *ctx, int x, int y, int width, int height);
+PIX_UIState screen_button(PIX_Context *ctx, int x, int y, int width, int height);
+PIX_UIState pixel_button(PIX_Context *ctx, Vector2 pos, Vector2 dim, Color col);
 PIX_Canvas *create_canvas(size_t width, size_t height, Color erase_color);
-PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas);
-void draw_background(PIX_Canvas *canvas, Camera2D camera, int width, int height);
+PIX_UIState draw_canvas(PIX_Context *ctx, PIX_Canvas *canvas);
+void draw_background(PIX_Context *ctx, PIX_Canvas *canvas, Camera2D camera);
 void erase_canvas(PIX_Canvas *canvas);
 
 int main(void) {
 
-    int width = 900;
-    int height = 600;
-    InitWindow(width, height, "PicoPix");
+    PIX_Context ctx = {};
+    ctx.width = 900;
+    ctx.height = 600;
+    InitWindow(ctx.width, ctx.height, "PicoPix");
     SetTargetFPS(256);
     SetExitKey(KEY_F4);
 
     Camera2D camera = {
-        .offset = {width/2, height/2},
+        .offset = { ctx.width/2, ctx.height/2 },
         .target = {0.f, 0.f},
         .rotation = 0.f,
         .zoom = 1.0f
     };
-    PIX_UIContext ctx = {};
-    PIX_Canvas *canvas = create_canvas(16, 16, BLANK);
+    PIX_Canvas *canvas = create_canvas(32, 32, BLANK);
 
     Vector2 mouse_screen = Vector2Zero();
     Vector2 mouse_camera = Vector2Zero();
@@ -61,7 +62,11 @@ int main(void) {
         BeginDrawing();
 
         ClearBackground(DARKGRAY);
-        draw_background(canvas, camera, width, height);
+        draw_background(&ctx, canvas, camera);
+
+        int wheel_size = 200;
+        Vector2 wheel_pos = { ctx.width - wheel_size * 0.6f, wheel_size * 0.8f };
+        color_wheel(&ctx, wheel_pos, wheel_size);
 
         BeginMode2D(camera);
 
@@ -77,7 +82,7 @@ int main(void) {
     }
 }
 
-void update_context(PIX_UIContext *ctx, Camera2D camera) {
+void update_context(PIX_Context *ctx, Camera2D camera) {
     if (!ctx) return;
     if (IsCursorOnScreen) {
         // mouse cursor
@@ -111,7 +116,7 @@ void update_context(PIX_UIContext *ctx, Camera2D camera) {
     }
 }
 
-PIX_UIState screen_button(PIX_UIContext *ctx, int x, int y, int width, int height) {
+PIX_UIState screen_button(PIX_Context *ctx, int x, int y, int width, int height) {
     PIX_UIState result = NOTHING;
     Color button_col = LIGHTGRAY;
 
@@ -140,7 +145,41 @@ PIX_UIState screen_button(PIX_UIContext *ctx, int x, int y, int width, int heigh
     return result;
 }
 
-PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height) {
+void color_wheel(PIX_Context *ctx, Vector2 center, int size) {
+    float sqrt_3 = sqrtf(3.f);
+
+    Vector2 top_offset   = {   0          , - (sqrt_3 / 3) * size };
+    Vector2 left_offset  = { - (size / 2) ,   (sqrt_3 / 6) * size };
+    Vector2 right_offset = {   (size / 2) ,   (sqrt_3 / 6) * size };
+
+    Vector2 blue = Vector2Add(center, top_offset);
+    Vector2 red = Vector2Add(center, left_offset);
+    Vector2 green = Vector2Add(center, right_offset);
+
+    Color wheel_color = BLACK;
+
+    if (CheckCollisionPointTriangle(ctx->mouse.pos, blue, red, green) &&
+        ctx->mouse.left.press) {
+        float blue_weight = size - Vector2Distance(ctx->mouse.pos, blue);
+        float red_weight = size - Vector2Distance(ctx->mouse.pos, red);
+        float green_weight = size - Vector2Distance(ctx->mouse.pos, green);
+
+        Color new_color = {
+            .r = (int) (red_weight / size * 255),
+            .g = (int) (blue_weight / size * 255),
+            .b = (int) (green_weight / size * 255),
+            .a = 255
+        };
+
+        ctx->draw_color = new_color;
+        wheel_color = new_color;
+    }
+
+    DrawTriangle(blue, red, green, wheel_color);
+
+}
+
+PIX_UIState button(PIX_Context *ctx, int x, int y, int width, int height) {
     PIX_UIState result = NOTHING;
     Color button_col = LIGHTGRAY;
 
@@ -169,7 +208,7 @@ PIX_UIState button(PIX_UIContext *ctx, int x, int y, int width, int height) {
     return result;
 }
 
-PIX_UIState pixel_button(PIX_UIContext *ctx, Vector2 pos, Vector2 dim, Color col) {
+PIX_UIState pixel_button(PIX_Context *ctx, Vector2 pos, Vector2 dim, Color col) {
     PIX_UIState result = NOTHING;
 
     Vector2 mouse_in_button = Vector2Subtract(ctx->mouse.world_pos, pos);
@@ -221,7 +260,7 @@ PIX_Canvas *create_canvas(size_t width, size_t height, Color erase_color) {
     return canvas;
 }
 
-PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas) {
+PIX_UIState draw_canvas(PIX_Context *ctx, PIX_Canvas *canvas) {
     PIX_UIState result = NOTHING;
     for(size_t layer_index = 0;
         layer_index < canvas->layers_count;
@@ -242,7 +281,7 @@ PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas) {
 
             if ((pixel_button(ctx, pixel_pos, canvas->pixel_size, pixel->color) &
                     BUTTON_PRESSED) && !ctx->canvas_dragging) {
-                pixel->color = RED;
+                pixel->color = ctx->draw_color;
                 result = CANVAS_DRAW;
             }
         }
@@ -274,7 +313,7 @@ PIX_UIState draw_canvas(PIX_UIContext *ctx, PIX_Canvas *canvas) {
     return result;
 }
 
-void draw_background(PIX_Canvas *canvas, Camera2D camera, int width, int height) {
+void draw_background(PIX_Context *ctx, PIX_Canvas *canvas, Camera2D camera) {
     Vector2 screen_canvas_origin = GetWorldToScreen2D(canvas->pos, camera);
     Vector2 world_canvas_size = {
         canvas->pixels_width * canvas->pixel_size.x,
@@ -297,8 +336,8 @@ void draw_background(PIX_Canvas *canvas, Camera2D camera, int width, int height)
     };
 
     Vector2 block_size = { 25, 25 };
-    for(int x = 0; x < width; x += block_size.x) {
-        for(int y = 0; y < height; y += block_size.y) {
+    for(int x = 0; x < ctx->width; x += block_size.x) {
+        for(int y = 0; y < ctx->height; y += block_size.y) {
             Color block_color = ((x + y) % 2 == 0) ? RAYWHITE : LIGHTGRAY;
 
             Rectangle block_rectangle = {
